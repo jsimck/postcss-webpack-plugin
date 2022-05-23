@@ -1,0 +1,20 @@
+name: audit
+
+on:
+  schedule:
+    - cron: "0 13 */7 * *"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: npm audit
+        uses: oke-py/npm-audit-action@v2.1.0
+        with:
+          audit_level: low
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_labels: audit
+          dedupe_issues: true
