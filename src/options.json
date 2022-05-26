@@ -3,13 +3,26 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "hashTableFilename": {
-      "type": "string",
-      "description": "This option determines the location of generated hashTable.json file."
+    "filter": {
+      "anyOf": [
+        { "instanceof": "RegExp" },
+        { "instanceof": "Function" }
+      ],
+      "description": "Optional assets filter function or RegExp to filter files for processing."
     },
-    "mainAssetFilter": {
-      "instanceof": "Function",
-      "description": "Optional asset filter for files which are used for hashTable.json creation."
+    "filename": {
+      "anyOf": [
+        { "instanceof": "Function" },
+        { "type": "string" }
+      ],
+      "description": "Optional new name for processed assets."
+    },
+    "implementation": {
+      "description": "Optional custom implementation of PostCSS."
+    },
+    "plugins": {
+      "type": "array",
+      "description": "Array of PostCSS plugins to process on given assets."
     }
   }
 }

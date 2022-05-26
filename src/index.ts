@@ -1,7 +1,6 @@
-import fs from 'fs';
 import path from 'path';
 
-import postcss from 'postcss';
+import { Postcss } from 'postcss';
 import { validate } from 'schema-utils';
 // eslint-disable-next-line import/no-unresolved
 import { Schema } from 'schema-utils/declarations/validate';
@@ -10,40 +9,41 @@ import { Compilation, Compiler, sources } from 'webpack';
 import schema from './options.json';
 
 const CSS_RE = /\.css$/;
+const PATH_INTERPOLATION_RE = /\[(\w+)\]/gi;
+
+// Credits goes to KPD at https://stackoverflow.com/a/49725198/5410837
+type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Pick<
+  T,
+  Exclude<keyof T, Keys>
+> &
+  {
+    [K in Keys]-?: Required<Pick<T, K>> & Partial<Pick<T, Exclude<Keys, K>>>;
+  }[Keys];
 
 export interface PostCSSWebpackPluginOptions {
-  hashTableFilename?: string;
-  mainAssetFilter?: (filename: string) => boolean;
+  filename?: string | ((filename: string) => string);
+  filter?: RegExp | ((filename: string) => boolean);
+  implementation?: Postcss;
+  plugins: [];
 }
 
-export interface PostCSSWebpackPluginCacheEntry {
-  source: sources.RawSource | sources.SourceMapSource;
-  hashTableSource: string | null;
-}
+export type PostCSSWebpackPluginCacheEntry =
+  | sources.RawSource
+  | sources.SourceMapSource;
 
-/**
- * PostCSSWebpackPlugin plugin runs our own postcss scramble plugin
- * on the generated webpack css assets. Handles caching and hash table
- * generation only on the main files while others are simply hashed using
- * existing hash table.
- */
 class PostCSSWebpackPlugin {
   private _pluginName: string;
-  private _options: Required<PostCSSWebpackPluginOptions>;
-  private _hashTablePath?: string;
+  private _options: RequireAtLeastOne<PostCSSWebpackPluginOptions, 'plugins'>;
 
-  constructor(options: PostCSSWebpackPluginOptions = {}) {
+  get postcss() {
+    return this._options.implementation ?? require('postcss');
+  }
+
+  constructor(options: PostCSSWebpackPluginOptions) {
     this._pluginName = this.constructor.name;
 
     // Set defaults
-    this._options = {
-      hashTableFilename:
-        options?.hashTableFilename ?? 'static/css/hashTable.json',
-      mainAssetFilter:
-        options?.mainAssetFilter ??
-        // Filter main app.css file
-        (filename => filename?.endsWith('app.css')),
-    };
+    this._options = options;
 
     // Validate options
     validate(schema as Schema, this._options, {
@@ -69,63 +69,66 @@ class PostCSSWebpackPlugin {
 
       compilation.hooks.statsPrinter.tap(this._pluginName, stats => {
         stats.hooks.print
-          .for('asset.info.minimized')
-          .tap(this._pluginName, (minimized, { green, formatFlag }) =>
-            minimized && green && formatFlag
-              ? green(formatFlag('minimized'))
-              : ''
+          .for('asset.info.optimized')
+          .tap(this._pluginName, (_, { green, formatFlag }) =>
+            green && formatFlag ? green(formatFlag('optimized')) : ''
           );
       });
     });
   }
 
-  /**
-   * Optimize css assets using postCss plugin. By default first file that
-   * is returned from mainAssetFilter is used as base to generate hashMap,
-   * other files are scrambled using existing map.
-   */
   async optimize(
     assets: Compilation['assets'],
     compilation: Compilation
   ): Promise<void> {
-    const [mainCssAsset, restCssAssets] = this._filterAssets(
-      Object.keys(assets)
-    );
-
-    // Skip if there is no main asset in the processed assets
-    if (!mainCssAsset) {
+    if (this._options.plugins.length === 0) {
       return;
     }
 
-    // Resolve absolute path for hash table filename
-    this._hashTablePath = path.isAbsolute(this._options.hashTableFilename)
-      ? this._options.hashTableFilename
-      : path.join(
-          compilation.outputOptions.path ?? process.cwd(),
-          this._options.hashTableFilename
-        );
+    // Filter out invalid assets
+    const filteredAssets = Object.keys(assets).filter(asset => {
+      // Skip optimized assets
+      const info = compilation.getAsset(asset)?.info;
+      if (info?.postcssOptimized) {
+        return false;
+      }
 
-    // First process main and generate hash table
-    await this._process(mainCssAsset, compilation);
+      if (typeof this._options.filter === 'undefined') {
+        return CSS_RE.test(asset);
+      }
 
-    // Process rest of the css assets with generated hash table
+      if (this._options.filter instanceof RegExp) {
+        return this._options.filter.test(asset);
+      }
+
+      if (typeof this._options.filter === 'function') {
+        return this._options.filter(asset);
+      }
+
+      return false;
+    });
+
+    // Skip when there are no assets to process
+    if (filteredAssets.length === 0) {
+      return;
+    }
+
+    // Process each asset separately
     await Promise.all(
-      restCssAssets.map(cssAsset => this._process(cssAsset, compilation, false))
+      filteredAssets.map(asset => this._process(asset, compilation))
     );
   }
 
-  /**
-   * Process single css asset, while handling cache management
-   */
   private async _process(
     filename: string,
-    compilation: Compilation,
-    generateHashTable = true
+    compilation: Compilation
   ): Promise<void> {
     // Check cache
     const cache = compilation.getCache(this._pluginName);
-    const { source } = compilation.getAsset(filename) || {};
+    const asset = compilation.getAsset(filename);
+    const { source, info } = asset || {};
 
+    // Skip empty assets
     if (!source) {
       return;
     }
@@ -137,81 +140,59 @@ class PostCSSWebpackPlugin {
 
     // Restore data from cache
     if (output) {
-      compilation.updateAsset(filename, output.source);
-      this._restoreHashTable(output.hashTableSource);
+      compilation.updateAsset(filename, output);
       return;
     }
 
-    const prevMap = source.map();
+    const { map: prevMap, source: fileContents } = source.sourceAndMap();
+    const newFilename = this._processFilename(filename);
 
-    // Process css using postcss plugin
-    const { css, map } = await postcss([
-      // TODO PLUGINS
-    ]).process(source.source(), {
-      map: prevMap ? { prev: prevMap } : {},
-      from: filename,
-      to: filename,
-    });
+    // Process css using postcss
+    const { css, map } = await this.postcss(this._options.plugins).process(
+      fileContents,
+      {
+        map: prevMap ? { prev: prevMap } : {},
+        from: filename,
+        to: newFilename,
+      }
+    );
 
     // Create new source
     const newSource = map
-      ? new sources.SourceMapSource(css, filename, map.toJSON())
+      ? new sources.SourceMapSource(css, newFilename, map.toJSON())
       : new sources.RawSource(css);
 
     // Store cache
-    await cacheItem.storePromise({
-      source: newSource,
-      hashTableSource: generateHashTable ? await this._loadHashTable() : null,
-    } as PostCSSWebpackPluginCacheEntry);
+    await cacheItem.storePromise(newSource as PostCSSWebpackPluginCacheEntry);
 
-    compilation.updateAsset(filename, newSource);
-  }
-
-  /**
-   * Restore hashTable.json file from the target path.
-   */
-  private async _loadHashTable(): Promise<string | null> {
-    if (this._hashTablePath) {
-      return fs.promises.readFile(this._hashTablePath, 'utf8');
-    }
-
-    return null;
-  }
-
-  /**
-   * Restore hashTable.json file to the target directory
-   * from webpack cache.
-   */
-  private async _restoreHashTable(
-    hashTableSource: string | null
-  ): Promise<void> {
-    if (!hashTableSource || !this._hashTablePath) {
-      return;
-    }
-
-    if (!fs.existsSync(this._hashTablePath)) {
-      await fs.promises.mkdir(path.dirname(this._hashTablePath), {
-        recursive: true,
-      });
-    }
-
-    return fs.promises.writeFile(this._hashTablePath, hashTableSource, {
-      encoding: 'utf8',
-    });
-  }
-
-  /**
-   * Filter CSS assets and split them into two groups of main file and
-   * other css files for additional processing using hash tabels.
-   */
-  private _filterAssets(assets: string[]): [string, string[]] {
-    const cssAssets = assets.filter(asset => CSS_RE.test(asset));
-    const [mainAsset] = cssAssets.splice(
-      cssAssets.findIndex(asset => this._options.mainAssetFilter(asset)),
-      1
+    // Updated asset source
+    compilation[newFilename === filename ? 'updateAsset' : 'emitAsset'](
+      newFilename,
+      newSource,
+      { ...info, postcssOptimized: true }
     );
+  }
 
-    return [mainAsset, cssAssets];
+  private _processFilename(filename: string) {
+    if (!this._options?.filename) {
+      return filename;
+    }
+
+    if (typeof this._options.filename === 'function') {
+      return this._options.filename(filename);
+    }
+
+    const parsedPath = path.parse(filename);
+
+    /**
+     * Interpolate template values ([base], [dir], [ext], [name], [root]),
+     * we manually prepend the base dir since you usually want to only
+     * edit the filename and retain the output path.
+     */
+    return `[dir]/${this._options.filename}`.replace(
+      PATH_INTERPOLATION_RE,
+      (_, group: keyof path.ParsedPath) => parsedPath[group]
+    );
   }
 }
 
