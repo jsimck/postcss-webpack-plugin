@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "tsc -w",
     "build": "tsc -b",
-    "lint": "eslint './**/*.{js,jsx,ts,tsx}'"
+    "lint": "eslint './**/*.{js,jsx,ts,tsx}'",
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -32,14 +33,22 @@
   },
   "homepage": "https://github.com/jsimck/postcss-webpack-plugin#readme",
   "devDependencies": {
+    "@types/jest": "^27.5.1",
     "@typescript-eslint/eslint-plugin": "^5.26.0",
     "@typescript-eslint/parser": "^5.26.0",
+    "cssnano": "^5.1.9",
     "eslint": "^8.16.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-prettier": "^4.0.0",
+    "jest": "^28.1.0",
+    "mini-css-extract-plugin": "^2.6.0",
     "postcss": "^8.4.14",
+    "postcss-font-family-system-ui": "^5.0.0",
+    "postcss-pxtorem": "^6.0.0",
     "prettier": "^2.6.2",
+    "ts-jest": "^28.0.3",
+    "ts-node": "^10.8.0",
     "typescript": "^4.6.4",
     "webpack": "^5.72.1"
   },
@@ -49,5 +58,9 @@
   },
   "engines": {
     "node": ">=14"
+  },
+  "dependencies": {
+    "css-loader": "^6.7.1",
+    "memfs": "^3.4.3"
   }
 }

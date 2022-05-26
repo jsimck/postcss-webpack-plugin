@@ -24,7 +24,7 @@ export interface PostCSSWebpackPluginOptions {
   filename?: string | ((filename: string) => string);
   filter?: RegExp | ((filename: string) => boolean);
   implementation?: Postcss;
-  plugins: [];
+  plugins: any[];
 }
 
 export type PostCSSWebpackPluginCacheEntry =
@@ -90,6 +90,9 @@ class PostCSSWebpackPlugin {
       // Skip optimized assets
       const info = compilation.getAsset(asset)?.info;
       if (info?.postcssOptimized) {
+        // TODO
+        console.log(asset, info);
+
         return false;
       }
 
@@ -148,14 +151,16 @@ class PostCSSWebpackPlugin {
     const newFilename = this._processFilename(filename);
 
     // Process css using postcss
-    const { css, map } = await this.postcss(this._options.plugins).process(
+    const postcssresult = await this.postcss(this._options.plugins).process(
       fileContents,
       {
-        map: prevMap ? { prev: prevMap } : {},
+        map: prevMap ? { prev: prevMap } : false,
         from: filename,
         to: newFilename,
       }
     );
+
+    const { css, map } = postcssresult;
 
     // Create new source
     const newSource = map
@@ -164,6 +169,8 @@ class PostCSSWebpackPlugin {
 
     // Store cache
     await cacheItem.storePromise(newSource as PostCSSWebpackPluginCacheEntry);
+      console.log(newFilename === filename, newFilename, filename);
+
 
     // Updated asset source
     compilation[newFilename === filename ? 'updateAsset' : 'emitAsset'](

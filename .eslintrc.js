@@ -37,6 +37,7 @@ module.exports = {
     ],
 
     // Plugin import
+    'import/no-unresolved': 'off',
     'import/order': [
       'error',
       {
