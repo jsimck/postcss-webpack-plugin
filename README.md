@@ -16,7 +16,7 @@
 
 Serves as an alternative and also addition to `postcss-loader`. While webpack loaders are efficient, when you need to run some transformations on concatenated CSS (through `mini-css-extract-plugin` for example), loaders allows you to process just one file at time.
 
-This plugin tries to solve this issue while taking great inspiration from [postcss-pipeline-webpack-plugin](postcss-pipeline-webpack-plugin). It allows you to **run PostCSS plugins** on generated (and newly emitted) **assets**, with support for webpack 5.x **filesystem cache** and ability to change content of **existing assets**, rather than a need to always generate new ones.
+This plugin tries to solve this issue while taking great inspiration from [postcss-pipeline-webpack-plugin]([postcss-pipeline-webpack-plugin](https://github.com/mistakster/postcss-pipeline-webpack-plugin#readme)). It allows you to **run PostCSS plugins** on generated (and newly emitted) **assets**, with support for webpack 5.x **filesystem cache** and ability to change content of **existing assets**, rather than a need to always generate new ones.
 
 ## Quick start
 ```console
@@ -24,6 +24,8 @@ npm i -D postcss postcss-webpack-plugin
 ```
 
 ```javascript
+const { PostCSSWebpackPlugin } = require('postcss-webpack-plugin');
+
 new PostCSSWebpackPlugin({
   // Required: Array of PostCSS plugins that are passed directly to postcss function
   plugins: [require('cssnano')],
@@ -54,8 +56,11 @@ new PostCSSWebpackPlugin({
 Sample usage in the webpack config object.
 
 ```javascript
+const { PostCSSWebpackPlugin } = require('postcss-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+
 module.exports = {
-  entry: 'base.css',
+  entry: 'main.css',
   plugins: [
     new MiniCssExtractPlugin({
       filename: '[name].css',
@@ -84,7 +89,10 @@ module.exports = {
 Multiple instances can be chained together:
 
 ```javascript
+const { PostCSSWebpackPlugin } = require('postcss-webpack-plugin');
+
 module.exports = {
+  entry: 'main.css',
   // ...
   plugins: [
     new PostCSSWebpackPlugin({
@@ -99,7 +107,12 @@ module.exports = {
 };
 ```
 
+This produces following output:
+```
+
+```
+
 ## Support
- - Node.js >= 12.x
- - `postcss` >= 8
- - `webpack` >= 5
+ - Node.js >= 14
+ - postcss >= 8
+ - webpack >= 5
