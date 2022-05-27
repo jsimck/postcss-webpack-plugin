@@ -16,7 +16,7 @@
 
 Serves as an alternative and also addition to `postcss-loader`. While webpack loaders are efficient, when you need to run some transformations on concatenated CSS (through `mini-css-extract-plugin` for example), loaders allows you to process just one file at time.
 
-This plugin tries to solve this issue while taking great inspiration from [postcss-pipeline-webpack-plugin]([postcss-pipeline-webpack-plugin](https://github.com/mistakster/postcss-pipeline-webpack-plugin#readme)). It allows you to **run PostCSS plugins** on generated (and newly emitted) **assets**, with support for webpack 5.x **filesystem cache** and ability to change content of **existing assets**, rather than a need to always generate new ones.
+This plugin tries to solve this issue while taking great inspiration from [postcss-pipeline-webpack-plugin](https://github.com/mistakster/postcss-pipeline-webpack-plugin#readme). It allows you to **run PostCSS plugins** on generated (and newly emitted) **assets**, with support for webpack 5.x **filesystem cache** and ability to change content of **existing assets**, rather than a need to always generate new ones.
 
 ## Quick start
 ```console
