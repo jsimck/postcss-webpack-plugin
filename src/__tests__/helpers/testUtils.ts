@@ -9,10 +9,10 @@ function getCompiler(config: webpack.Configuration = {}): webpack.Compiler {
     entry: config.entry ?? './base.css',
     mode: 'development',
     devtool: config.devtool ?? false,
-    context: path.resolve(__dirname, '../__fixtures__'),
+    context: path.resolve(__dirname, '../../__fixtures__'),
     output: {
       pathinfo: false,
-      path: path.resolve(__dirname, '../__outputs__'),
+      path: path.resolve(__dirname, '../../__outputs__'),
       filename: '[name].js',
       chunkFilename: '[id].[name].js',
     },
@@ -54,6 +54,7 @@ function readAssets(
   compiler: webpack.Compiler,
   stats: webpack.Stats
 ): Record<string, string> {
+  const outputsPath = path.resolve(__dirname, '../../__outputs__');
   const usedFs = compiler.outputFileSystem;
   const outputPath = stats.compilation.outputOptions.path ?? '';
   const assets = Object.keys(stats.compilation.assets).filter(assetName =>
@@ -62,8 +63,12 @@ function readAssets(
 
   return assets.reduce<Record<string, string>>((acc, cur) => {
     try {
-      acc[cur] = (usedFs as any)
-        .readFileSync(path.join(outputPath, cur))
+      const assetOutputPath = path.join(outputPath, cur);
+      // Get assets path with root dir === __outputs__ dir
+      const normAssetOutputPath = assetOutputPath.replace(outputsPath, '');
+
+      acc[normAssetOutputPath] = (usedFs as any)
+        .readFileSync(assetOutputPath)
         .toString();
     } catch (error) {
       if (error instanceof Error) {

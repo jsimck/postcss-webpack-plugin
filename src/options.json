@@ -2,18 +2,27 @@
   "title": "PostCSSWebpackPluginOptions",
   "type": "object",
   "additionalProperties": false,
+  "required": ["plugins"],
   "properties": {
     "filter": {
       "anyOf": [
-        { "instanceof": "RegExp" },
-        { "instanceof": "Function" }
+        {
+          "instanceof": "RegExp"
+        },
+        {
+          "instanceof": "Function"
+        }
       ],
       "description": "Optional assets filter function or RegExp to filter files for processing."
     },
     "filename": {
       "anyOf": [
-        { "instanceof": "Function" },
-        { "type": "string" }
+        {
+          "instanceof": "Function"
+        },
+        {
+          "type": "string"
+        }
       ],
       "description": "Optional new name for processed assets."
     },
@@ -23,6 +32,10 @@
     "plugins": {
       "type": "array",
       "description": "Array of PostCSS plugins to process on given assets."
+    },
+    "additionalAssets": {
+      "type": "boolean",
+      "description": "Enable if you want to run the plugin for newly generated assets (even the ones this plugin generates). This option has to be used along with custom filter to prevent asset duplication."
     }
   }
 }

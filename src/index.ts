@@ -24,6 +24,7 @@ export interface PostCSSWebpackPluginOptions {
   filename?: string | ((filename: string) => string);
   filter?: RegExp | ((filename: string) => boolean);
   implementation?: Postcss;
+  additionalAssets?: true | undefined;
   plugins: any[];
 }
 
@@ -62,7 +63,7 @@ class PostCSSWebpackPlugin {
           name: this._pluginName,
           stage:
             compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE,
-          additionalAssets: true,
+          additionalAssets: this._options.additionalAssets,
         },
         (assets: Compilation['assets']) => this.optimize(assets, compilation)
       );
@@ -87,15 +88,6 @@ class PostCSSWebpackPlugin {
 
     // Filter out invalid assets
     const filteredAssets = Object.keys(assets).filter(asset => {
-      // Skip optimized assets
-      const info = compilation.getAsset(asset)?.info;
-      if (info?.postcssOptimized) {
-        // TODO
-        console.log(asset, info);
-
-        return false;
-      }
-
       if (typeof this._options.filter === 'undefined') {
         return CSS_RE.test(asset);
       }
@@ -169,14 +161,12 @@ class PostCSSWebpackPlugin {
 
     // Store cache
     await cacheItem.storePromise(newSource as PostCSSWebpackPluginCacheEntry);
-      console.log(newFilename === filename, newFilename, filename);
-
 
     // Updated asset source
     compilation[newFilename === filename ? 'updateAsset' : 'emitAsset'](
       newFilename,
       newSource,
-      { ...info, postcssOptimized: true }
+      info
     );
   }
 
@@ -196,7 +186,7 @@ class PostCSSWebpackPlugin {
      * we manually prepend the base dir since you usually want to only
      * edit the filename and retain the output path.
      */
-    return `[dir]/${this._options.filename}`.replace(
+    return `${parsedPath.dir ? '[dir]/' : ''}${this._options.filename}`.replace(
       PATH_INTERPOLATION_RE,
       (_, group: keyof path.ParsedPath) => parsedPath[group]
     );
