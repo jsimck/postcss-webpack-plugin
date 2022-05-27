@@ -98,3 +98,8 @@ module.exports = {
   ]
 };
 ```
+
+## Support
+ - Node.js >= 12.x
+ - `postcss` >= 8
+ - `webpack` >= 5
