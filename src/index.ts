@@ -5,7 +5,7 @@ import { Postcss } from 'postcss';
 import { validate } from 'schema-utils';
 // eslint-disable-next-line import/no-unresolved
 import { Schema } from 'schema-utils/declarations/validate';
-import { Compilation, Compiler, sources } from 'webpack';
+import { AssetInfo, Compilation, Compiler, sources } from 'webpack';
 
 import schema from './options.json';
 
@@ -30,9 +30,10 @@ export interface PostCSSWebpackPluginOptions {
   plugins: any[];
 }
 
-type PostCSSWebpackPluginCacheEntry =
-  | sources.RawSource
-  | sources.SourceMapSource;
+type PostCSSWebpackPluginCacheEntry = {
+  source: sources.RawSource | sources.SourceMapSource;
+  info?: AssetInfo;
+};
 
 class PostCSSWebpackPlugin {
   private _id: string;
@@ -124,6 +125,7 @@ class PostCSSWebpackPlugin {
     compilation: Compilation
   ): Promise<void> {
     // Check cache
+    const newFilename = this._processFilename(filename);
     const cache = compilation.getCache(`${this._pluginName}-${this._id}`);
     const asset = compilation.getAsset(filename);
     const { source, info } = asset || {};
@@ -135,17 +137,21 @@ class PostCSSWebpackPlugin {
 
     const eTag = cache.getLazyHashedEtag(source);
     const cacheItem = cache.getItemCache(filename, eTag);
-    const output =
-      (await cacheItem.getPromise()) as PostCSSWebpackPluginCacheEntry;
+    const { source: cachedSource, info: cachedInfo } =
+      ((await cacheItem.getPromise()) as PostCSSWebpackPluginCacheEntry) ?? {};
 
     // Restore data from cache
-    if (output) {
-      compilation.updateAsset(filename, output);
+    if (cachedSource) {
+      compilation[newFilename === filename ? 'updateAsset' : 'emitAsset'](
+        filename,
+        cachedSource,
+        cachedInfo
+      );
+
       return;
     }
 
     const { map: prevMap, source: fileContents } = source.sourceAndMap();
-    const newFilename = this._processFilename(filename);
 
     // Process css using postcss
     const postcssresult = await this.postcss(this._options.plugins).process(
@@ -165,7 +171,10 @@ class PostCSSWebpackPlugin {
       : new sources.RawSource(css);
 
     // Store cache
-    await cacheItem.storePromise(newSource as PostCSSWebpackPluginCacheEntry);
+    await cacheItem.storePromise({
+      source: newSource,
+      info,
+    } as PostCSSWebpackPluginCacheEntry);
 
     // Updated asset source
     compilation[newFilename === filename ? 'updateAsset' : 'emitAsset'](

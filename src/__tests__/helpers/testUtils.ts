@@ -9,6 +9,9 @@ function getCompiler(config: webpack.Configuration = {}): webpack.Compiler {
     entry: config.entry ?? './base.css',
     mode: 'development',
     devtool: config.devtool ?? false,
+    cache: {
+      type: 'filesystem',
+    },
     context: path.resolve(__dirname, '../__mocks__'),
     output: {
       pathinfo: false,
