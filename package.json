@@ -10,7 +10,7 @@
     "build": "tsc -b",
     "lint": "eslint './**/*.{js,jsx,ts,tsx}'",
     "test": "jest",
-    "preversion": "npm run build; npm run test;"
+    "prepublish": "npm run build; npm run test;"
   },
   "repository": {
     "type": "git",
