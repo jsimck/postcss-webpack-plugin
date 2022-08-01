@@ -227,12 +227,9 @@ describe('when used with source maps', () => {
 
     const stats = await compile(compiler);
 
-    expect(readAssets(compiler, stats)).toMatchInlineSnapshot(`
-      Object {
-        "/main.css": "body{font-family:sans-serif;font-size:.9375rem}
-      /*# sourceMappingURL=main.css.map*/",
-      }
-    `);
+    expect(readAssets(compiler, stats)).toStrictEqual({
+      '/main.css': expect.stringContaining('sourceMappingURL'),
+    });
   });
 
   it('should work properly with source maps disable', async () => {
