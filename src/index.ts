@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import path from 'path';
 
 import { Postcss } from 'postcss';
@@ -25,14 +26,16 @@ export interface PostCSSWebpackPluginOptions {
   filter?: RegExp | ((filename: string) => boolean);
   implementation?: Postcss;
   additionalAssets?: true | undefined;
+  stage?: number;
   plugins: any[];
 }
 
-export type PostCSSWebpackPluginCacheEntry =
+type PostCSSWebpackPluginCacheEntry =
   | sources.RawSource
   | sources.SourceMapSource;
 
 class PostCSSWebpackPlugin {
+  private _id: string;
   private _pluginName: string;
   private _options: RequireAtLeastOne<PostCSSWebpackPluginOptions, 'plugins'>;
 
@@ -41,6 +44,7 @@ class PostCSSWebpackPlugin {
   }
 
   constructor(options: PostCSSWebpackPluginOptions) {
+    this._id = crypto.randomBytes(16).toString('hex');
     this._pluginName = this.constructor.name;
 
     // Set defaults
@@ -62,7 +66,8 @@ class PostCSSWebpackPlugin {
         {
           name: this._pluginName,
           stage:
-            compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE,
+            this._options.stage ??
+            compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE,
           additionalAssets: this._options.additionalAssets,
         },
         (assets: Compilation['assets']) => this.optimize(assets, compilation)
@@ -119,7 +124,7 @@ class PostCSSWebpackPlugin {
     compilation: Compilation
   ): Promise<void> {
     // Check cache
-    const cache = compilation.getCache(this._pluginName);
+    const cache = compilation.getCache(`${this._pluginName}-${this._id}`);
     const asset = compilation.getAsset(filename);
     const { source, info } = asset || {};
 

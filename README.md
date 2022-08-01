@@ -14,105 +14,79 @@
     </a>
 </p>
 
-Serves as an alternative and also addition to `postcss-loader`. While webpack loaders are efficient, when you need to run some transformations on concatenated CSS (through `mini-css-extract-plugin` for example), loaders allows you to process just one file at time.
-
-This plugin tries to solve this issue while taking great inspiration from [postcss-pipeline-webpack-plugin](https://github.com/mistakster/postcss-pipeline-webpack-plugin#readme). It allows you to **run PostCSS plugins** on generated (and newly emitted) **assets**, with support for webpack 5.x **filesystem cache** and ability to change content of **existing assets**, rather than a need to always generate new ones.
+Webpack loaders are pretty cool but limited to process and generate only one file at a time. If you are extracting critical CSS or media queries into separate files, you are no longer able to process these files. This plugin was made to solve this problem.
 
 ## Quick start
 ```console
-npm i -D postcss postcss-webpack-plugin
+npx jsconfig.json
 ```
 
-```javascript
-const { PostCSSWebpackPlugin } = require('postcss-webpack-plugin');
+By default the `jsconfig.json` is generated in **current working directory** (this is also where the script looks for existence of `webpack.config.js` or `package.json` file in order to try to extract path aliases).
 
-new PostCSSWebpackPlugin({
-  // Required: Array of PostCSS plugins that are passed directly to postcss function
-  plugins: [require('cssnano')],
-  /**
-   * Optional: Can be either function, which receives asset file name as first
-   * argument and should return new name ((filename: string) => string). Or a string
-   * with a support for [base], [dir], [name], [ext] template tags. Defaults to the
-   * existing filename (updates asset content) if not provided.
-   */
-  filename?: string | ((filename: string) => string),
-  /**
-   * Optional: Custom function or RegExp to filter out unwanted assets. Defaults
-   * to /\.css$/ to process only CSS files.
-   */
-  filter?: RegExp | ((filename: string) => boolean),
-  // Optional: Custom implementation of postcss, defaults to require('postcss')
-  implementation?: require('postcss'),
-  /**
-   * Optional: Runs plugin also for newly emitted assets. Should be combined
-   * with custom filter option in order to not get stuck processing the same
-   * file all over again.
-   */
-  additionalAssets?: true | undefined,
-})
+This can be changed by providing path to custom working directory as a **first argument** of the cli (`npx jsconfig.json ~/Workspace/my-project`).
+
+### Templates
+
+There are few predefined jsconfig.json templates, that can be selected using `-t, --template` argument to help bootstrap the correct environment (`default` [default option], `nextjs`, `react`, `vuejs` and `node`).
+
+```console
+npx jsconfig.json --template=nextjs
 ```
 
-## Usage
-Sample usage in the webpack config object.
+### Additional CLI options
 
-```javascript
-const { PostCSSWebpackPlugin } = require('postcss-webpack-plugin');
-const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+These allow you to further overwrite additional defaults or even provide custom `--baseUrl` and `--webpackConfigPath` that are used to generate correct paths to aliases. Lastly `--output` is used to define custom output directory for generated jsconfig.json file (this will not change the path aliases generation in any way). For more options run:
 
-module.exports = {
-  entry: 'main.css',
-  plugins: [
-    new MiniCssExtractPlugin({
-      filename: '[name].css',
-      chunkFilename: '[id].[name].css',
-    }),
-    ...(config?.plugins ?? []),
-  ],
-  module: {
-    rules: [
-      {
-        test: /.css$/i,
-        use: [MiniCssExtractPlugin.loader, 'css-loader'],
-      },
-    ],
-  },
-  plugins: [
-    new PostCSSWebpackPlugin({
-      plugins: [require('postcss-pxtorem'), require('cssnano')],
-    })
-  ]
-};
+```console
+npx jsconfig.json --help
 ```
 
-### Advanced usage
+```console
+Usage: npx jsconfig.json <srcPath> [options]
 
-Multiple instances can be chained together:
-
-```javascript
-const { PostCSSWebpackPlugin } = require('postcss-webpack-plugin');
-
-module.exports = {
-  entry: 'main.css',
-  // ...
-  plugins: [
-    new PostCSSWebpackPlugin({
-      plugins: [require('postcss-pxtorem'), require('cssnano')],
-      filename: '[name].rem[ext]',
-    }),
-    new PostCSSWebpackPlugin({
-      plugins: [require('postcss-pxtorem'), require('cssnano')],
-      filename: '[name].min[ext]',
-    })
-  ]
-};
+Options:
+      --help                    Show help                                           [boolean]
+      --version                 Show version number                                 [boolean]
+  -o, --output                  Optional custom output directory for generated jsconfig.json
+                                file                                                 [string]
+  -t, --template                Base jsconfig.json template
+                [choices: "default", "nextjs", "react", "vuejs", "node"] [default: "default"]
+  -b, --baseUrl                 Custom base url used for paths generation            [string]
+  -c, --webpackConfig           Custom path to webpack.config.js                     [string]
+  -a, --target                  Specifies which default library (lib.d.ts) to use
+    [string] [choices: "es3", "es5", "es6", "es2015", "es2016", "es2017", "es2018", "es2019",
+                                                      "es2020", "esnext"] [default: "es2020"]
+  -m, --module                  Specifies the module system, when generating module code
+    [string] [choices: "amd", "commonJS", "es2015", "es6", "esnext", "none", "system", "umd"]
+                                                                          [default: "es2015"]
+  -r, --moduleResolution        Specifies how modules are resolved for imports
+                                      [string] [choices: "node", "classic"] [default: "node"]
+  -e, --experimentalDecorators  Enables experimental support for proposed ES decorators
+                                                                                    [boolean]
+  -s, --syntheticImports        Allow default imports from modules with no default export.
+                                This does not affect code emit, just type checking. [boolean]
 ```
 
-This produces following output:
-```
+### Support
+- Node.js >= **12.x**
+
+
+## Contributions
+
+Contributions of any kind are very welcome!
+
+This repository uses **conventional commits** in order to correctly generate CHANGELOG and release automatically. This means that all commits should follow correct form defined in the conventional commits specification. To make this process easier (and since there's pre-commit hook to validate commit messages. which won't let you commit invalid messages) you can run commit wizard using:
 
 ```
+npm run commit
+```
 
-## Support
- - Node.js >= 14
- - postcss >= 8
- - webpack >= 5
+Which will take you through the process of generating correct format of the commit message.
+
+### Development
+
+To run cli in development you can use `npm run dev` to fires up nodemon which watches changes over the source files. By default the result is written to tmp/jsconfig.json when using nodemon (this looks int the root directory of the repository for webpack configs, you can provide custom webpack config while developing using CLI options `npm run dev -- --webpackConfig=/tmp/custom.webpack.test.config.js`).
+
+### Tests
+
+Tests are written using [jest framework](https://jestjs.io/). To run them use either `npm run test` or `npm run test:unit`, `npm run test e2e` to run each set of tests separately.

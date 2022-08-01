@@ -9,7 +9,7 @@ function getCompiler(config: webpack.Configuration = {}): webpack.Compiler {
     entry: config.entry ?? './base.css',
     mode: 'development',
     devtool: config.devtool ?? false,
-    context: path.resolve(__dirname, '../../__fixtures__'),
+    context: path.resolve(__dirname, '../__mocks__'),
     output: {
       pathinfo: false,
       path: path.resolve(__dirname, '../../__outputs__'),

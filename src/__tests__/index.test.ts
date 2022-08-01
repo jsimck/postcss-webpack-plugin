@@ -60,12 +60,8 @@ describe('when used with additionalAssets option', () => {
     const compiler = getCompiler({
       plugins: [
         new PostCSSWebpackPlugin({
-          plugins: [require('postcss-pxtorem')],
-          filename: '[name].pxtorem[ext]',
-        }),
-        new PostCSSWebpackPlugin({
           plugins: [require('cssnano')],
-          filename: '[name].minimized[ext]',
+          filename: '[name].min[ext]',
           additionalAssets: true,
         }),
       ],
@@ -76,19 +72,13 @@ describe('when used with additionalAssets option', () => {
     expect(readAssets(compiler, stats)).toMatchInlineSnapshot(`
       Object {
         "/main.css": "body {
-        font-size: 0.9375rem;
+        font-size: 15px;
         font-family: sans-serif;
       }
 
       ",
-        "/main.pxtorem.css": "body {
-        font-size: 0.9375rem;
-        font-family: sans-serif;
-      }
-
-      ",
-        "/main.pxtorem.minimized.css": "body{font-family:sans-serif;font-size:.9375rem}",
-        "/main.pxtorem.minimized.minimized.css": "body{font-family:sans-serif;font-size:.9375rem}",
+        "/main.min.css": "body{font-family:sans-serif;font-size:15px}",
+        "/main.min.min.css": "body{font-family:sans-serif;font-size:15px}",
       }
     `);
   });
@@ -144,36 +134,10 @@ describe('when used with custom filter', () => {
       }
     `);
   });
-
-  it('should apply changes only to filtered assets using regexp filter', async () => {
-    const compiler = getCompiler({
-      entry: { base: './base.css', component: './component.css' },
-      plugins: [
-        new PostCSSWebpackPlugin({
-          plugins: [require('cssnano')],
-          filter: filename => /component\.css$/.test(filename),
-        }),
-      ],
-    });
-
-    const stats = await compile(compiler);
-
-    expect(readAssets(compiler, stats)).toMatchInlineSnapshot(`
-      Object {
-        "/base.css": "body {
-        font-size: 15px;
-        font-family: sans-serif;
-      }
-
-      ",
-        "/component.css": ".component{background:#000;font-size:12px}",
-      }
-    `);
-  });
 });
 
 describe('when used with custom filename option', () => {
-  it('should interpolate template variables and create new asset', async () => {
+  it('should interpolate template variables and emit new asset', async () => {
     const compiler = getCompiler({
       plugins: [
         new PostCSSWebpackPlugin({
@@ -250,8 +214,8 @@ describe('when used with custom filename option', () => {
   });
 });
 
-describe('when used with source maps enabled', () => {
-  it('should work properly with external source maps', async () => {
+describe('when used with source maps', () => {
+  it('should work properly with source maps enabled', async () => {
     const compiler = getCompiler({
       devtool: 'source-map',
       plugins: [
@@ -267,6 +231,63 @@ describe('when used with source maps enabled', () => {
       Object {
         "/main.css": "body{font-family:sans-serif;font-size:.9375rem}
       /*# sourceMappingURL=main.css.map*/",
+      }
+    `);
+  });
+
+  it('should work properly with source maps disable', async () => {
+    const compiler = getCompiler({
+      devtool: false,
+      plugins: [
+        new PostCSSWebpackPlugin({
+          plugins: [require('postcss-pxtorem'), require('cssnano')],
+        }),
+      ],
+    });
+
+    const stats = await compile(compiler);
+
+    expect(readAssets(compiler, stats)).toMatchInlineSnapshot(`
+      Object {
+        "/main.css": "body{font-family:sans-serif;font-size:.9375rem}",
+      }
+    `);
+  });
+});
+
+describe('when used with multiple instances', () => {
+  it('should apply plugin postcss instances sequentially', async () => {
+    const compiler = getCompiler({
+      plugins: [
+        new PostCSSWebpackPlugin({
+          plugins: [require('postcss-pxtorem')],
+          filename: '[name].rem[ext]',
+        }),
+        new PostCSSWebpackPlugin({
+          plugins: [require('cssnano')],
+          filename: '[name].min[ext]',
+        }),
+      ],
+    });
+
+    const stats = await compile(compiler);
+
+    expect(readAssets(compiler, stats)).toMatchInlineSnapshot(`
+      Object {
+        "/main.css": "body {
+        font-size: 15px;
+        font-family: sans-serif;
+      }
+
+      ",
+        "/main.min.css": "body{font-family:sans-serif;font-size:15px}",
+        "/main.rem.css": "body {
+        font-size: 0.9375rem;
+        font-family: sans-serif;
+      }
+
+      ",
+        "/main.rem.min.css": "body{font-family:sans-serif;font-size:.9375rem}",
       }
     `);
   });
