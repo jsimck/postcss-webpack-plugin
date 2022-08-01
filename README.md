@@ -6,87 +6,122 @@
     <a href="https://github.com/jsimck/postcss-webpack-plugin/actions/workflows/ci.yml">
         <img alt="ci" src="https://github.com/jsimck/postcss-webpack-plugin/actions/workflows/ci.yml/badge.svg?branch=main">
     </a>
-    <a href="https://conventionalcommits.org">
-        <img alt="Conventional Commits" src="https://img.shields.io/badge/  Conventional%20Commits-1.0.0-yellow.svg">
-    </a>
     <a href="https://github.com/prettier/prettier">
         <img alt="Prettier" src="https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square">
     </a>
 </p>
 
-Webpack loaders are pretty cool but limited to process and generate only one file at a time. If you are extracting critical CSS or media queries into separate files, you are no longer able to process these files. This plugin was made to solve this problem.
+Serves as an alternative and also addition to `postcss-loader`. While webpack loaders are pretty efficient, they allow you to process just one file at time.
 
-## Quick start
+This plugin tries to solve this issue while taking great inspiration from [postcss-pipeline-webpack-plugin](https://github.com/mistakster/postcss-pipeline-webpack-plugin#readme). It allows you to run PostCSS plugins on generated (and newly emitted) assets, with support for webpack 5.x filesystem cache and ability to change content of existing assets, rather than a need to always generate new ones.
+
+## Installation
 ```console
-npx jsconfig.json
+npm i -D postcss-webpack-plugin
 ```
 
-By default the `jsconfig.json` is generated in **current working directory** (this is also where the script looks for existence of `webpack.config.js` or `package.json` file in order to try to extract path aliases).
+## Usage
 
-This can be changed by providing path to custom working directory as a **first argument** of the cli (`npx jsconfig.json ~/Workspace/my-project`).
+```javascript
+// webpack.config.js
+const { PostCSSWebpackPlugin } = require('postcss-webpack-plugin');
 
-### Templates
-
-There are few predefined jsconfig.json templates, that can be selected using `-t, --template` argument to help bootstrap the correct environment (`default` [default option], `nextjs`, `react`, `vuejs` and `node`).
-
-```console
-npx jsconfig.json --template=nextjs
+module.exports = {
+  entry: 'base.css',
+  plugins: [
+    new MiniCssExtractPlugin({
+      filename: '[name].css',
+      chunkFilename: '[id].[name].css',
+    }),
+    ...(config?.plugins ?? []),
+  ],
+  module: {
+    rules: [
+      {
+        test: /.css$/i,
+        use: [MiniCssExtractPlugin.loader, 'css-loader'],
+      },
+    ],
+  },
+  plugins: [
+    new PostCSSWebpackPlugin({
+      plugins: [require('postcss-pxtorem'), require('cssnano')],
+    }),
+  ],
+};
 ```
 
-### Additional CLI options
+### Chaining multiple instances together
 
-These allow you to further overwrite additional defaults or even provide custom `--baseUrl` and `--webpackConfigPath` that are used to generate correct paths to aliases. Lastly `--output` is used to define custom output directory for generated jsconfig.json file (this will not change the path aliases generation in any way). For more options run:
+Following example first runs css nano and pxtorem plugin son the `base.css` asset and then creates a new one with only mobile styles (using `unmq` plugin) in the second pass.
 
-```console
-npx jsconfig.json --help
+```javascript
+// webpack.config.js
+const { PostCSSWebpackPlugin } = require('postcss-webpack-plugin');
+
+module.exports = {
+  // ...
+  plugins: [
+    new PostCSSWebpackPlugin({
+      plugins: [require('postcss-pxtorem'), require('cssnano')],
+    }),
+    new PostCSSWebpackPlugin({
+      plugins: [
+        require('postcss-unmq')({
+          type: 'screen',
+          width: 540,
+        }),
+      ],
+      filename: '[name].mobile[ext]',
+    })
+  ]
+}
 ```
 
-```console
-Usage: npx jsconfig.json <srcPath> [options]
 
-Options:
-      --help                    Show help                                           [boolean]
-      --version                 Show version number                                 [boolean]
-  -o, --output                  Optional custom output directory for generated jsconfig.json
-                                file                                                 [string]
-  -t, --template                Base jsconfig.json template
-                [choices: "default", "nextjs", "react", "vuejs", "node"] [default: "default"]
-  -b, --baseUrl                 Custom base url used for paths generation            [string]
-  -c, --webpackConfig           Custom path to webpack.config.js                     [string]
-  -a, --target                  Specifies which default library (lib.d.ts) to use
-    [string] [choices: "es3", "es5", "es6", "es2015", "es2016", "es2017", "es2018", "es2019",
-                                                      "es2020", "esnext"] [default: "es2020"]
-  -m, --module                  Specifies the module system, when generating module code
-    [string] [choices: "amd", "commonJS", "es2015", "es6", "esnext", "none", "system", "umd"]
-                                                                          [default: "es2015"]
-  -r, --moduleResolution        Specifies how modules are resolved for imports
-                                      [string] [choices: "node", "classic"] [default: "node"]
-  -e, --experimentalDecorators  Enables experimental support for proposed ES decorators
-                                                                                    [boolean]
-  -s, --syntheticImports        Allow default imports from modules with no default export.
-                                This does not affect code emit, just type checking. [boolean]
+### Plugin options
+```typescript
+interface PostCSSWebpackPluginOptions {
+  filename?: string | ((filename: string) => string);
+  filter?: RegExp | ((filename: string) => boolean);
+  implementation?: Postcss;
+  additionalAssets?: true | undefined;
+  stage?: number;
+  plugins: any[];
+}
 ```
 
-### Support
-- Node.js >= **12.x**
+#### `filename`
+> `string | ((filename: string) => string)`
 
+Optional custom filename. If not provided the plugins are applied on the existing css assets without creating new ones. Can be either function or string with support for `[base], [dir], [ext], [name], [root]` template variables.
 
-## Contributions
+#### `filter`
+> `RegExp | ((filename: string) => boolean)`
 
-Contributions of any kind are very welcome!
+Custom function or RegExp to filter assets to process (defaults to `/\.css$/`).
 
-This repository uses **conventional commits** in order to correctly generate CHANGELOG and release automatically. This means that all commits should follow correct form defined in the conventional commits specification. To make this process easier (and since there's pre-commit hook to validate commit messages. which won't let you commit invalid messages) you can run commit wizard using:
+#### `implementation`
+> `Postcss`
 
-```
-npm run commit
-```
+Optional custom implementation for `postcss`. Can be usefull in some projects where the default `require('postcss')` resolves to wrong version.
 
-Which will take you through the process of generating correct format of the commit message.
+#### `additionalAssets`
+> `true | undefined`
 
-### Development
+Set to true to run plugin for newly emitted assets. Should be used in combination with `filter` option in order to prevent cycles in compilation.
 
-To run cli in development you can use `npm run dev` to fires up nodemon which watches changes over the source files. By default the result is written to tmp/jsconfig.json when using nodemon (this looks int the root directory of the repository for webpack configs, you can provide custom webpack config while developing using CLI options `npm run dev -- --webpackConfig=/tmp/custom.webpack.test.config.js`).
+#### `stage`
+> `number`
 
-### Tests
+Custom plugin processAssets hook stage (defaults to `PROCESS_ASSETS_STAGE_OPTIMIZE`).
 
-Tests are written using [jest framework](https://jestjs.io/). To run them use either `npm run test` or `npm run test:unit`, `npm run test e2e` to run each set of tests separately.
+#### `plugins`
+> `any[]`
+
+Array of postcss plugins.
+
+## Supported versions
+- node => 14
+- postcss => 8
+- webpack => 5
