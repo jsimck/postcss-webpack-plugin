@@ -122,6 +122,6 @@ Custom plugin processAssets hook stage (defaults to `PROCESS_ASSETS_STAGE_OPTIMI
 Array of postcss plugins.
 
 ## Supported versions
-- node => 14
-- postcss => 8
-- webpack => 5
+- node  **14+**
+- postcss **8+**
+- webpack **5+**
