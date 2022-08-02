@@ -1,7 +1,7 @@
 {
   "name": "postcss-webpack-plugin",
   "version": "1.0.1",
-  "description": "",
+  "description": "A webpack plugin to process generated assets with PostCSS with support for webpack 5 filesystem cache.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.js",
   "type": "commonjs",
